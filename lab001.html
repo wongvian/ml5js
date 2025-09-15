@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>AI Mirror - Mood Quotes</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.6.0/p5.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ml5/0.12.2/ml5.min.js"></script>
+  <style>
+    body { background: black; color: white; text-align: center; }
+    #quote { font-size: 1.5rem; margin-top: 10px; }
+    #cameraSelect { 
+        margin: 10px auto;
+        padding: 5px;
+        background: #333;
+        color: white;
+        border: 1px solid #666;
+    }
+  </style>
+</head>
+<body>
+  <h1>🪞 AI Mirror</h1>
+  <select id="cameraSelect">
+        <option value="">กำลังค้นหากล้อง...</option>
+  </select>
+  <video id="video" width="320" height="240" autoplay muted playsinline></video>
+  <div id="quote">กำลังตรวจอารมณ์...</div>
+
+  <script>
+    const video = document.getElementById('video');
+    const quoteDiv = document.getElementById('quote');
+    const cameraSelect = document.getElementById('cameraSelect');
+    const moodQuotes = {
+      happy: ["ยิ้มแล้วโลกสดใส 🌞", "ความสุขแพร่เชื้อได้นะ 😁", "วันนี้คุณดูดีมาก!"],
+      sad: ["ไม่เป็นไรนะ เดี๋ยวมันก็ดีขึ้น 💙", "เศร้าได้ แต่ต้องฮึบสู้ ✨"],
+      angry: ["ใจเย็นๆ นะ สูดหายใจลึกๆ 😌", "โกรธได้ แต่อย่าให้มันเผาใจ 🔥"],
+      neutral: ["วันนี้ดูนิ่งๆ นะ 😶", "พร้อมเริ่มอะไรใหม่ๆ หรือยัง?"],
+    };
+
+    async function getCameras() {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = devices.filter(device => device.kind === 'videoinput');
+        cameraSelect.innerHTML = videoDevices.map(device =>
+            `<option value="${device.deviceId}">${device.label || `Camera ${videoDevices.indexOf(device) + 1}`}</option>`
+        ).join('');
+    }
+
+    async function setupCamera() {
+        const constraints = {
+            video: {
+                deviceId: cameraSelect.value ? { exact: cameraSelect.value } : undefined
+            }
+        };
+        if (video.srcObject) {
+            video.srcObject.getTracks().forEach(track => track.stop());
+        }
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        video.srcObject = stream;
+        return new Promise(resolve => video.onloadedmetadata = resolve);
+    }
+
+    cameraSelect.onchange = async () => {
+        await setupCamera();
+    };
+
+    async function startFaceAPI() {
+      await getCameras();
+      await setupCamera();
+      const faceapi = ml5.faceApi(video, { withExpressions: true }, modelReady);
+
+      function modelReady() {
+        console.log("FaceAPI ready!");
+        detect();
+      }
+
+      function detect() {
+        faceapi.detectSingle(gotResults);
+      }
+
+      function gotResults(err, result) {
+        if (result && result.expressions) {
+          const sorted = Object.entries(result.expressions).sort((a, b) => b[1] - a[1]);
+          const topEmotion = sorted[0][0];
+          const quotes = moodQuotes[topEmotion] || ["คุณคือปริศนา 🤔"];
+          quoteDiv.textContent = quotes[Math.floor(Math.random() * quotes.length)];
+        }
+        detect(); // loop
+      }
+    }
+
+    startFaceAPI();
+  </script>
+</body>
+</html>

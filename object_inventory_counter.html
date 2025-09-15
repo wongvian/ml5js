@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>โปรแกรมนับวัตถุทั้งหมดในกล้อง</title>
+    <script src="p5.min.js"></script>
+    <script src="ml5.min.js"></script>
+    <!-- SheetJS for Excel export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            color: white;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            max-width: 1400px;
+            width: 100%;
+        }
+
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 30px;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .control-group label {
+            font-size: 0.9rem;
+            font-weight: 600;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+        }
+
+        select, button, input {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+        }
+
+        select:hover, button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .btn-primary {
+            background: linear-gradient(45deg, #4CAF50, #45a049);
+            color: white;
+        }
+
+        .btn-success {
+            background: linear-gradient(45deg, #28a745, #20c997);
+            color: white;
+        }
+
+        .btn-warning {
+            background: linear-gradient(45deg, #ffc107, #fd7e14);
+            color: white;
+        }
+
+        .btn-danger {
+            background: linear-gradient(45deg, #dc3545, #c82333);
+            color: white;
+        }
+
+        .btn-info {
+            background: linear-gradient(45deg, #17a2b8, #138496);
+            color: white;
+        }
+
+        .camera-container {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 30px;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        .stats-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(5px);
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: transform 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .stat-number {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 5px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            opacity: 0.9;
+            font-weight: 500;
+        }
+
+        .status {
+            text-align: center;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+
+        .status.loading {
+            background: rgba(255, 193, 7, 0.2);
+            border: 1px solid rgba(255, 193, 7, 0.5);
+        }
+
+        .status.ready {
+            background: rgba(40, 167, 69, 0.2);
+            border: 1px solid rgba(40, 167, 69, 0.5);
+        }
+
+        .status.error {
+            background: rgba(220, 53, 69, 0.2);
+            border: 1px solid rgba(220, 53, 69, 0.5);
+        }
+
+        .data-panels {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .panel {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .panel h3 {
+            margin-bottom: 15px;
+            color: #fff;
+            text-align: center;
+        }
+
+        .object-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            margin-bottom: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            border-left: 4px solid #4CAF50;
+        }
+
+        .object-name {
+            font-weight: bold;
+            color: #4CAF50;
+        }
+
+        .object-count {
+            background: rgba(76, 175, 80, 0.2);
+            padding: 4px 12px;
+            border-radius: 15px;
+            font-weight: bold;
+        }
+
+        .confidence-bar {
+            width: 60px;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 5px;
+        }
+
+        .confidence-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4CAF50, #8BC34A);
+            transition: width 0.3s ease;
+        }
+
+        .snapshot-item {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 10px;
+            border-left: 4px solid #17a2b8;
+        }
+
+        .snapshot-time {
+            font-size: 0.9rem;
+            color: #17a2b8;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+
+        .snapshot-summary {
+            font-size: 0.85rem;
+            opacity: 0.9;
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .container {
+                padding: 20px;
+            }
+            
+            .controls {
+                flex-direction: column;
+            }
+
+            .data-panels {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📊 โปรแกรมนับวัตถุทั้งหมดในกล้อง</h1>
+        <p>ตรวจจับและนับวัตถุทุกประเภทแบบเรียลไทม์ พร้อมส่งออกเป็นไฟล์ Excel</p>
+    </div>
+
+    <div class="container">
+        <div class="controls">
+            <div class="control-group">
+                <label>📷 เลือกกล้อง</label>
+                <select id="cameraSelect">
+                    <option value="">กำลังโหลดรายการกล้อง...</option>
+                </select>
+            </div>
+            
+            <div class="control-group">
+                <label>⚡ ความถี่การตรวจจับ</label>
+                <select id="detectionSpeed">
+                    <option value="500">เร็ว (0.5 วินาที)</option>
+                    <option value="1000" selected>ปกติ (1 วินาที)</option>
+                    <option value="2000">ช้า (2 วินาที)</option>
+                </select>
+            </div>
+            
+            <div class="control-group">
+                <label>🎯 ความแม่นยำขั้นต่ำ</label>
+                <select id="confidenceThreshold">
+                    <option value="0.3">30%</option>
+                    <option value="0.5" selected>50%</option>
+                    <option value="0.7">70%</option>
+                    <option value="0.9">90%</option>
+                </select>
+            </div>
+            
+            <button id="startBtn" class="btn-primary">🎬 เริ่มกล้อง</button>
+            <button id="snapshotBtn" class="btn-info" style="display: none;">📸 บันทึกภาพรวม</button>
+            <button id="pauseBtn" class="btn-warning" style="display: none;">⏸️ หยุดชั่วคราว</button>
+            <button id="exportBtn" class="btn-success" style="display: none;">📊 ส่งออก Excel</button>
+            <button id="resetBtn" class="btn-danger">🔄 รีเซ็ต</button>
+        </div>
+
+        <div id="status" class="status loading">🔄 กำลังเริ่มต้นระบบ...</div>
+
+        <div class="camera-container">
+            <div id="videoContainer"></div>
+        </div>
+
+        <div class="stats-container">
+            <div class="stat-card">
+                <div class="stat-number" id="totalObjects">0</div>
+                <div class="stat-label">📦 วัตถุทั้งหมด</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="uniqueTypes">0</div>
+                <div class="stat-label">🏷️ ประเภทวัตถุ</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="avgConfidence">0%</div>
+                <div class="stat-label">🎯 ความแม่นยำเฉลี่ย</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="detectionCount">0</div>
+                <div class="stat-label">🔍 ครั้งที่ตรวจจับ</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="sessionTime">0</div>
+                <div class="stat-label">⏱️ เวลาทำงาน (นาที)</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="snapshotCount">0</div>
+                <div class="stat-label">📸 ภาพรวมที่บันทึก</div>
+            </div>
+        </div>
+
+        <div class="data-panels">
+            <div class="panel">
+                <h3>📋 วัตถุที่ตรวจพบปัจจุบัน</h3>
+                <div id="currentObjects"></div>
+            </div>
+            
+            <div class="panel">
+                <h3>📊 ประวัติการบันทึกภาพรวม</h3>
+                <div id="snapshotHistory"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let video;
+        let detector;
+        let detections = [];
+        let isDetecting = false;
+        let isPaused = false;
+        let sessionStartTime = null;
+        let detectionInterval = 1000;
+        let confidenceThreshold = 0.5;
+        
+        // Data storage
+        let currentObjectCounts = {};
+        let detectionHistory = [];
+        let snapshots = [];
+        let totalDetections = 0;
+        
+        // Elements
+        const statusEl = document.getElementById('status');
+        const totalObjectsEl = document.getElementById('totalObjects');
+        const uniqueTypesEl = document.getElementById('uniqueTypes');
+        const avgConfidenceEl = document.getElementById('avgConfidence');
+        const detectionCountEl = document.getElementById('detectionCount');
+        const sessionTimeEl = document.getElementById('sessionTime');
+        const snapshotCountEl = document.getElementById('snapshotCount');
+        const startBtn = document.getElementById('startBtn');
+        const snapshotBtn = document.getElementById('snapshotBtn');
+        const pauseBtn = document.getElementById('pauseBtn');
+        const exportBtn = document.getElementById('exportBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const cameraSelect = document.getElementById('cameraSelect');
+        const detectionSpeedSelect = document.getElementById('detectionSpeed');
+        const confidenceThresholdSelect = document.getElementById('confidenceThreshold');
+        const currentObjectsEl = document.getElementById('currentObjects');
+        const snapshotHistoryEl = document.getElementById('snapshotHistory');
+
+        function preload() {
+            // ml5.js will be loaded
+        }
+
+        function setup() {
+            const canvas = createCanvas(800, 600);
+            canvas.parent('videoContainer');
+            
+            updateStatus('loading', '🔄 กำลังโหลดกล้อง...');
+            
+            // Get available cameras
+            getCameras();
+            
+            // Event listeners
+            startBtn.onclick = startCamera;
+            snapshotBtn.onclick = takeSnapshot;
+            pauseBtn.onclick = togglePause;
+            exportBtn.onclick = exportToExcel;
+            resetBtn.onclick = resetData;
+            
+            detectionSpeedSelect.onchange = (e) => {
+                detectionInterval = parseInt(e.target.value);
+            };
+            
+            confidenceThresholdSelect.onchange = (e) => {
+                confidenceThreshold = parseFloat(e.target.value);
+            };
+            
+            // Update session time every second
+            setInterval(updateSessionTime, 1000);
+        }
+
+        async function getCameras() {
+            try {
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const videoDevices = devices.filter(device => device.kind === 'videoinput');
+                
+                cameraSelect.innerHTML = '';
+                videoDevices.forEach((device, index) => {
+                    const option = document.createElement('option');
+                    option.value = device.deviceId;
+                    option.textContent = device.label || `กล้อง ${index + 1}`;
+                    cameraSelect.appendChild(option);
+                });
+                
+                if (videoDevices.length === 0) {
+                    cameraSelect.innerHTML = '<option value="">ไม่พบกล้อง</option>';
+                }
+            } catch (error) {
+                console.error('Error getting cameras:', error);
+                cameraSelect.innerHTML = '<option value="">เกิดข้อผิดพลาดในการโหลดกล้อง</option>';
+            }
+        }
+
+        async function startCamera() {
+            try {
+                updateStatus('loading', '🎬 กำลังเริ่มกล้อง...');
+                
+                const constraints = {
+                    video: {
+                        width: 800,
+                        height: 600,
+                        deviceId: cameraSelect.value ? { exact: cameraSelect.value } : undefined
+                    }
+                };
+                
+                video = createCapture(constraints);
+                video.size(800, 600);
+                video.hide();
+                
+                // Wait for video to be ready
+                video.elt.addEventListener('loadeddata', initializeDetector);
+                
+                startBtn.style.display = 'none';
+                snapshotBtn.style.display = 'inline-block';
+                pauseBtn.style.display = 'inline-block';
+                exportBtn.style.display = 'inline-block';
+                
+            } catch (error) {
+                console.error('Error starting camera:', error);
+                updateStatus('error', '❌ เกิดข้อผิดพลาดในการเริ่มกล้อง');
+            }
+        }
+
+        function initializeDetector() {
+            updateStatus('loading', '🤖 กำลังโหลด AI Model...');
+            
+            detector = ml5.objectDetector('cocossd', {}, () => {
+                updateStatus('ready', '✅ พร้อมใช้งาน! กำลังตรวจจับวัตถุแบบเรียลไทม์');
+                isDetecting = true;
+                sessionStartTime = new Date();
+                detect();
+            });
+        }
+
+        function detect() {
+            if (!isDetecting || !video || isPaused) {
+                if (isDetecting && !isPaused) {
+                    setTimeout(detect, detectionInterval);
+                }
+                return;
+            }
+            
+            detector.detect(video, (error, results) => {
+                if (error) {
+                    console.error('Detection error:', error);
+                    return;
+                }
+                
+                detections = results || [];
+                processDetections();
+                setTimeout(detect, detectionInterval);
+            });
+        }
+
+        function processDetections() {
+            // Filter by confidence threshold
+            const filteredDetections = detections.filter(detection => 
+                detection.confidence >= confidenceThreshold
+            );
+            
+            // Count objects by type
+            currentObjectCounts = {};
+            filteredDetections.forEach(detection => {
+                const objectType = detection.label;
+                if (!currentObjectCounts[objectType]) {
+                    currentObjectCounts[objectType] = {
+                        count: 0,
+                        totalConfidence: 0,
+                        detections: []
+                    };
+                }
+                currentObjectCounts[objectType].count++;
+                currentObjectCounts[objectType].totalConfidence += detection.confidence;
+                currentObjectCounts[objectType].detections.push(detection);
+            });
+            
+            // Add to detection history
+            if (Object.keys(currentObjectCounts).length > 0) {
+                detectionHistory.push({
+                    timestamp: new Date(),
+                    objects: JSON.parse(JSON.stringify(currentObjectCounts)),
+                    totalObjects: filteredDetections.length
+                });
+                totalDetections++;
+            }
+            
+            // Update displays
+            updateStats();
+            updateCurrentObjectsDisplay();
+        }
+
+        function updateStats() {
+            const totalObjects = Object.values(currentObjectCounts).reduce((sum, obj) => sum + obj.count, 0);
+            const uniqueTypes = Object.keys(currentObjectCounts).length;
+            
+            totalObjectsEl.textContent = totalObjects;
+            uniqueTypesEl.textContent = uniqueTypes;
+            detectionCountEl.textContent = totalDetections;
+            snapshotCountEl.textContent = snapshots.length;
+            
+            // Calculate average confidence
+            if (totalObjects > 0) {
+                let totalConfidence = 0;
+                let totalCount = 0;
+                Object.values(currentObjectCounts).forEach(obj => {
+                    totalConfidence += obj.totalConfidence;
+                    totalCount += obj.count;
+                });
+                const avgConf = totalConfidence / totalCount;
+                avgConfidenceEl.textContent = Math.round(avgConf * 100) + '%';
+            } else {
+                avgConfidenceEl.textContent = '0%';
+            }
+        }
+
+        function updateCurrentObjectsDisplay() {
+            currentObjectsEl.innerHTML = '';
+            
+            if (Object.keys(currentObjectCounts).length === 0) {
+                currentObjectsEl.innerHTML = '<div style="text-align: center; opacity: 0.7;">ไม่พบวัตถุ</div>';
+                return;
+            }
+            
+            Object.entries(currentObjectCounts).forEach(([objectType, data]) => {
+                const avgConfidence = data.totalConfidence / data.count;
+                
+                const objectItem = document.createElement('div');
+                objectItem.className = 'object-item';
+                
+                objectItem.innerHTML = `
+                    <div>
+                        <div class="object-name">${objectType}</div>
+                        <div class="confidence-bar">
+                            <div class="confidence-fill" style="width: ${avgConfidence * 100}%"></div>
+                        </div>
+                    </div>
+                    <div class="object-count">${data.count}</div>
+                `;
+                
+                currentObjectsEl.appendChild(objectItem);
+            });
+        }
+
+        function updateSessionTime() {
+            if (sessionStartTime) {
+                const now = new Date();
+                const diffMinutes = Math.floor((now - sessionStartTime) / 1000 / 60);
+                sessionTimeEl.textContent = diffMinutes;
+            }
+        }
+
+        function takeSnapshot() {
+            const timestamp = new Date();
+            const snapshotData = {
+                id: snapshots.length + 1,
+                timestamp: timestamp,
+                objects: JSON.parse(JSON.stringify(currentObjectCounts)),
+                totalObjects: Object.values(currentObjectCounts).reduce((sum, obj) => sum + obj.count, 0),
+                uniqueTypes: Object.keys(currentObjectCounts).length
+            };
+            
+            snapshots.push(snapshotData);
+            updateSnapshotHistory();
+            updateStats();
+            
+            updateStatus('ready', `📸 บันทึกภาพรวม #${snapshots.length} เรียบร้อย`);
+        }
+
+        function updateSnapshotHistory() {
+            snapshotHistoryEl.innerHTML = '';
+            
+            if (snapshots.length === 0) {
+                snapshotHistoryEl.innerHTML = '<div style="text-align: center; opacity: 0.7;">ยังไม่มีภาพรวมที่บันทึก</div>';
+                return;
+            }
+            
+            // Show last 10 snapshots
+            const recentSnapshots = snapshots.slice(-10).reverse();
+            
+            recentSnapshots.forEach(snapshot => {
+                const snapshotItem = document.createElement('div');
+                snapshotItem.className = 'snapshot-item';
+                
+                const objectSummary = Object.entries(snapshot.objects)
+                    .map(([type, data]) => `${type}: ${data.count}`)
+                    .join(', ');
+                
+                snapshotItem.innerHTML = `
+                    <div class="snapshot-time">
+                        📸 ภาพรวม #${snapshot.id} - ${snapshot.timestamp.toLocaleString('th-TH')}
+                    </div>
+                    <div class="snapshot-summary">
+                        📦 วัตถุทั้งหมด: ${snapshot.totalObjects} | 🏷️ ประเภท: ${snapshot.uniqueTypes}<br>
+                        ${objectSummary || 'ไม่มีวัตถุ'}
+                    </div>
+                `;
+                
+                snapshotHistoryEl.appendChild(snapshotItem);
+            });
+        }
+
+        function togglePause() {
+            isPaused = !isPaused;
+            if (isPaused) {
+                pauseBtn.textContent = '▶️ เริ่มต่อ';
+                updateStatus('ready', '⏸️ หยุดชั่วคราว');
+            } else {
+                pauseBtn.textContent = '⏸️ หยุดชั่วคราว';
+                updateStatus('ready', '▶️ กำลังตรวจจับวัตถุ');
+                if (isDetecting) detect();
+            }
+        }
+
+        function exportToExcel() {
+            if (snapshots.length === 0 && detectionHistory.length === 0) {
+                updateStatus('error', '❌ ไม่มีข้อมูลให้ส่งออก');
+                return;
+            }
+            
+            // Create workbook
+            const wb = XLSX.utils.book_new();
+            
+            // Summary sheet
+            const summaryData = [
+                ['รายงานการตรวจจับวัตถุ'],
+                ['สร้างเมื่อ', new Date().toLocaleString('th-TH')],
+                ['เวลาเริ่มเซสชัน', sessionStartTime ? sessionStartTime.toLocaleString('th-TH') : 'ไม่ระบุ'],
+                ['ระยะเวลาทำงาน (นาที)', sessionStartTime ? Math.floor((new Date() - sessionStartTime) / 1000 / 60) : 0],
+                ['จำนวนครั้งที่ตรวจจับ', totalDetections],
+                ['จำนวนภาพรวมที่บันทึก', snapshots.length],
+                [],
+                ['สถิติรวม'],
+                ['ประเภทวัตถุ', 'จำนวนรวม', 'ความถี่ที่พบ', 'ความแม่นยำเฉลี่ย']
+            ];
+            
+            // Calculate overall statistics
+            const overallStats = {};
+            detectionHistory.forEach(detection => {
+                Object.entries(detection.objects).forEach(([type, data]) => {
+                    if (!overallStats[type]) {
+                        overallStats[type] = { count: 0, totalConfidence: 0, frequency: 0 };
+                    }
+                    overallStats[type].count += data.count;
+                    overallStats[type].totalConfidence += data.totalConfidence;
+                    overallStats[type].frequency++;
+                });
+            });
+            
+            Object.entries(overallStats).forEach(([type, stats]) => {
+                const avgConfidence = stats.totalConfidence / stats.count;
+                summaryData.push([
+                    type,
+                    stats.count,
+                    stats.frequency,
+                    Math.round(avgConfidence * 100) + '%'
+                ]);
+            });
+            
+            const summaryWs = XLSX.utils.aoa_to_sheet(summaryData);
+            XLSX.utils.book_append_sheet(wb, summaryWs, 'สรุปรายงาน');
+            
+            // Snapshots sheet
+            if (snapshots.length > 0) {
+                const snapshotData = [
+                    ['ภาพรวม ID', 'วันที่-เวลา', 'วัตถุทั้งหมด', 'ประเภทวัตถุ', 'รายละเอียดวัตถุ']
+                ];
+                
+                snapshots.forEach(snapshot => {
+                    const objectDetails = Object.entries(snapshot.objects)
+                        .map(([type, data]) => `${type}: ${data.count}`)
+                        .join(', ');
+                    
+                    snapshotData.push([
+                        snapshot.id,
+                        snapshot.timestamp.toLocaleString('th-TH'),
+                        snapshot.totalObjects,
+                        snapshot.uniqueTypes,
+                        objectDetails
+                    ]);
+                });
+                
+                const snapshotWs = XLSX.utils.aoa_to_sheet(snapshotData);
+                XLSX.utils.book_append_sheet(wb, snapshotWs, 'ภาพรวมที่บันทึก');
+            }
+            
+            // Detection history sheet
+            if (detectionHistory.length > 0) {
+                const historyData = [
+                    ['เวลา', 'วัตถุทั้งหมด', 'ประเภทวัตถุ', 'รายละเอียด']
+                ];
+                
+                detectionHistory.slice(-100).forEach(detection => { // Last 100 detections
+                    const objectDetails = Object.entries(detection.objects)
+                        .map(([type, data]) => `${type}: ${data.count}`)
+                        .join(', ');
+                    
+                    historyData.push([
+                        detection.timestamp.toLocaleString('th-TH'),
+                        detection.totalObjects,
+                        Object.keys(detection.objects).length,
+                        objectDetails
+                    ]);
+                });
+                
+                const historyWs = XLSX.utils.aoa_to_sheet(historyData);
+                XLSX.utils.book_append_sheet(wb, historyWs, 'ประวัติการตรวจจับ');
+            }
+            
+            // Export file
+            const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+            const fileName = `object_inventory_${timestamp}.xlsx`;
+            
+            XLSX.writeFile(wb, fileName);
+            
+            updateStatus('ready', '📊 ส่งออกไฟล์ Excel เรียบร้อยแล้ว!');
+        }
+
+        function resetData() {
+            currentObjectCounts = {};
+            detectionHistory = [];
+            snapshots = [];
+            totalDetections = 0;
+            sessionStartTime = new Date();
+            
+            updateStats();
+            updateCurrentObjectsDisplay();
+            updateSnapshotHistory();
+            updateStatus('ready', '🔄 รีเซ็ตข้อมูลเรียบร้อย');
+        }
+
+        function draw() {
+            if (video && video.loadedmetadata) {
+                // Draw video
+                image(video, 0, 0, 800, 600);
+                
+                // Draw detection boxes
+                if (detections.length > 0) {
+                    detections.forEach(detection => {
+                        if (detection.confidence >= confidenceThreshold) {
+                            const x = detection.x;
+                            const y = detection.y;
+                            const w = detection.width;
+                            const h = detection.height;
+                            
+                            // Draw bounding box
+                            stroke(76, 175, 80);
+                            strokeWeight(2);
+                            noFill();
+                            rect(x, y, w, h);
+                            
+                            // Draw label
+                            fill(76, 175, 80);
+                            noStroke();
+                            textAlign(LEFT, TOP);
+                            textSize(14);
+                            const label = `${detection.label} ${Math.round(detection.confidence * 100)}%`;
+                            
+                            // Background for text
+                            fill(0, 0, 0, 150);
+                            rect(x, y - 20, textWidth(label) + 10, 20);
+                            
+                            // Text
+                            fill(255, 255, 255);
+                            text(label, x + 5, y - 18);
+                        }
+                    });
+                }
+                
+                // Draw pause indicator
+                if (isPaused) {
+                    fill(255, 193, 7, 100);
+                    noStroke();
+                    rect(0, 0, width, height);
+                    
+                    fill(255, 255, 255);
+                    textAlign(CENTER, CENTER);
+                    textSize(24);
+                    text('⏸️ หยุดชั่วคราว', width/2, height/2);
+                }
+                
+            } else {
+                // Show loading screen
+                background(50);
+                fill(255);
+                textAlign(CENTER, CENTER);
+                textSize(24);
+                text('กำลังโหลด...', width/2, height/2);
+            }
+        }
+
+        function updateStatus(type, message) {
+            statusEl.className = `status ${type}`;
+            statusEl.textContent = message;
+        }
+
+        // Initialize p5.js
+        new p5();
+    </script>
+</body>
+</html>

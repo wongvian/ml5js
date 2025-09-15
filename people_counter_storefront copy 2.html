@@ -1,0 +1,1341 @@
+<!DOCTYPE html>
+<html lang="th">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>โปรแกรมนับจำนวนคนเดินผ่านหน้าร้าน</title>
+    <script src="p5.min.js"></script>
+    <script src="ml5.min.js"></script>
+    <!-- Chart.js for analytics -->
+    <script src="chart.js"></script>
+    <!-- SheetJS for Excel export -->
+    <script src="xlsx.full.min.js"></script>
+
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 20px;
+        color: white;
+      }
+
+      .header {
+        text-align: center;
+        margin-bottom: 30px;
+      }
+
+      .header h1 {
+        font-size: 2.5rem;
+        font-weight: 700;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        margin-bottom: 10px;
+      }
+
+      .header p {
+        font-size: 1.1rem;
+        opacity: 0.9;
+      }
+
+      .container {
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+        border-radius: 20px;
+        padding: 30px;
+        box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        max-width: 1400px;
+        width: 100%;
+      }
+
+      .controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 15px;
+        margin-bottom: 30px;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .control-group {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        align-items: center;
+      }
+
+      .control-group label {
+        font-size: 0.9rem;
+        font-weight: 600;
+        text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+      }
+
+      select,
+      button,
+      input {
+        padding: 12px 20px;
+        border: none;
+        border-radius: 10px;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        background: rgba(255, 255, 255, 0.9);
+        color: #333;
+      }
+
+      select:hover,
+      button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+      }
+
+      .btn-primary {
+        background: linear-gradient(45deg, #4caf50, #45a049);
+        color: white;
+      }
+
+      .btn-success {
+        background: linear-gradient(45deg, #28a745, #20c997);
+        color: white;
+      }
+
+      .btn-warning {
+        background: linear-gradient(45deg, #ffc107, #fd7e14);
+        color: white;
+      }
+
+      .btn-danger {
+        background: linear-gradient(45deg, #dc3545, #c82333);
+        color: white;
+      }
+
+      .btn-info {
+        background: linear-gradient(45deg, #17a2b8, #138496);
+        color: white;
+      }
+
+      .camera-container {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 30px;
+        border-radius: 15px;
+        overflow: hidden;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        position: relative;
+      }
+
+      .stats-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        margin-bottom: 30px;
+      }
+
+      .stat-card {
+        background: rgba(255, 255, 255, 0.15);
+        backdrop-filter: blur(5px);
+        border-radius: 15px;
+        padding: 20px;
+        text-align: center;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        transition: transform 0.3s ease;
+      }
+
+      .stat-card:hover {
+        transform: translateY(-5px);
+      }
+
+      .stat-number {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 5px;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+      }
+
+      .stat-label {
+        font-size: 1rem;
+        opacity: 0.9;
+        font-weight: 500;
+      }
+
+      .status {
+        text-align: center;
+        padding: 15px;
+        border-radius: 10px;
+        margin-bottom: 20px;
+        font-weight: 600;
+        font-size: 1.1rem;
+      }
+
+      .status.loading {
+        background: rgba(255, 193, 7, 0.2);
+        border: 1px solid rgba(255, 193, 7, 0.5);
+      }
+
+      .status.ready {
+        background: rgba(40, 167, 69, 0.2);
+        border: 1px solid rgba(40, 167, 69, 0.5);
+      }
+
+      .status.error {
+        background: rgba(220, 53, 69, 0.2);
+        border: 1px solid rgba(220, 53, 69, 0.5);
+      }
+
+      .analytics-section {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+        margin-top: 20px;
+      }
+
+      .chart-container {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 15px;
+        padding: 20px;
+        height: 300px;
+      }
+
+      .activity-log {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 15px;
+        padding: 20px;
+        max-height: 300px;
+        overflow-y: auto;
+      }
+
+      .log-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 12px;
+        margin-bottom: 8px;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 8px;
+        border-left: 4px solid #4caf50;
+      }
+
+      .log-time {
+        font-size: 0.9rem;
+        opacity: 0.8;
+      }
+
+      .log-action {
+        font-weight: bold;
+        color: #4caf50;
+      }
+
+      .direction-indicator {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        background: rgba(0, 0, 0, 0.7);
+        padding: 10px;
+        border-radius: 8px;
+        font-size: 0.9rem;
+        max-width: 200px;
+      }
+
+      .counting-line {
+        position: absolute;
+        top: 50%;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: linear-gradient(90deg, transparent, #ff4444, transparent);
+        z-index: 10;
+      }
+
+      .line-adjustment-mode {
+        background: rgba(255, 255, 0, 0.1);
+        border: 2px dashed #ffff00;
+      }
+
+      .line-coordinates {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: rgba(0, 0, 0, 0.7);
+        padding: 8px 12px;
+        border-radius: 6px;
+        font-size: 0.8rem;
+        color: #ffff00;
+      }
+
+      .hourly-stats {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 15px;
+        padding: 20px;
+        margin-top: 20px;
+      }
+
+      .hourly-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        gap: 10px;
+        margin-top: 15px;
+      }
+
+      .hour-card {
+        background: rgba(255, 255, 255, 0.05);
+        padding: 15px;
+        border-radius: 8px;
+        text-align: center;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .hour-time {
+        font-size: 0.9rem;
+        opacity: 0.8;
+        margin-bottom: 5px;
+      }
+
+      .hour-count {
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: #4caf50;
+      }
+
+      @media (max-width: 768px) {
+        .header h1 {
+          font-size: 2rem;
+        }
+
+        .container {
+          padding: 20px;
+        }
+
+        .controls {
+          flex-direction: column;
+        }
+
+        .analytics-section {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <h1>🚶‍♂️ โปรแกรมนับจำนวนคนเดินผ่านหน้าร้าน</h1>
+      <p>ระบบวิเคราะห์การเดินทางของลูกค้าแบบเรียลไทม์ สำหรับธุรกิจค้าปลีก</p>
+    </div>
+
+    <div class="container">
+      <div class="controls">
+        <div class="control-group">
+          <label>📷 เลือกกล้อง</label>
+          <select id="cameraSelect">
+            <option value="">กำลังโหลดรายการกล้อง...</option>
+          </select>
+        </div>
+
+        <div class="control-group">
+          <label>🎯 ความไวในการตรวจจับ</label>
+          <select id="sensitivity">
+            <option value="0.1">สูงสุด (10%) - ตรวจจับทุกอย่าง</option>
+            <option value="0.2">สูงมาก (20%) - ไวมาก</option>
+            <option value="0.3">สูง (30%) - เหมาะสำหรับไฟแสงน้อย</option>
+            <option value="0.4">ปานกลาง+ (40%) - ไวปานกลาง</option>
+            <option value="0.5" selected>ปกติ (50%) - แนะนำ</option>
+            <option value="0.6">ปานกลาง- (60%) - ลดสัญญาณรบกวน</option>
+            <option value="0.7">ต่ำ (70%) - เฉพาะคนชัดเจน</option>
+            <option value="0.8">ต่ำมาก (80%) - คุณภาพสูง</option>
+            <option value="0.9">ต่ำสุด (90%) - เฉพาะคนที่แน่ใจ</option>
+          </select>
+        </div>
+        
+        <div class="control-group">
+          <label>📏 ระยะห่างการติดตาม</label>
+          <select id="trackingDistance">
+            <option value="50">ใกล้ (50px) - แม่นยำสูง</option>
+            <option value="75">ปานกลาง (75px) - สมดุล</option>
+            <option value="100" selected>ปกติ (100px) - แนะนำ</option>
+            <option value="125">ไกล (125px) - ยืดหยุ่น</option>
+            <option value="150">ไกลมาก (150px) - ผ่อนปรน</option>
+          </select>
+        </div>
+        
+        <div class="control-group">
+          <label>⚡ ความถี่การตรวจจับ</label>
+          <select id="detectionSpeed">
+            <option value="50">เร็วสุด (50ms) - เรียลไทม์</option>
+            <option value="100" selected>เร็ว (100ms) - แนะนำ</option>
+            <option value="200">ปกติ (200ms) - ประหยัดพลังงาน</option>
+            <option value="500">ช้า (500ms) - ประหยัดมาก</option>
+          </select>
+        </div>
+
+        <div class="control-group">
+          <label>📏 ทิศทางเส้นนับ</label>
+          <select id="lineOrientation">
+            <option value="horizontal" selected>แนวนอน</option>
+            <option value="vertical">แนวตั้ง</option>
+          </select>
+        </div>
+
+        <div class="control-group">
+          <label>📍 ตำแหน่งเส้นนับ</label>
+          <select id="linePosition">
+            <option value="center" selected>กึ่งกลาง</option>
+            <option value="start">ต้น (บน/ซ้าย)</option>
+            <option value="end">ปลาย (ล่าง/ขวา)</option>
+          </select>
+        </div>
+
+        <button id="adjustLineBtn" class="btn-info" style="display: none">
+          🎯 ปรับเส้นด้วยเมาส์
+        </button>
+
+        <button id="startBtn" class="btn-primary">🎬 เริ่มนับคน</button>
+        <button id="pauseBtn" class="btn-warning" style="display: none">
+          ⏸️ หยุดชั่วคราว
+        </button>
+        <button id="resetBtn" class="btn-danger">🔄 รีเซ็ตข้อมูล</button>
+        <button id="exportBtn" class="btn-success" style="display: none">
+          📊 ส่งออกรายงาน
+        </button>
+      </div>
+
+      <div id="status" class="status loading">🔄 กำลังเริ่มต้นระบบ...</div>
+
+      <div class="camera-container">
+        <div id="videoContainer"></div>
+        <div class="direction-indicator">
+          <div>🔴 เส้นนับคน (แนวนอน)</div>
+          <div>⬇️ เข้าร้าน | ⬆️ ออกจากร้าน</div>
+          <div style="font-size: 0.8rem; opacity: 0.8">Y: 300</div>
+        </div>
+      </div>
+
+      <div class="stats-container">
+        <div class="stat-card">
+          <div class="stat-number" id="totalPeople">0</div>
+          <div class="stat-label">👥 คนทั้งหมด</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number" id="peopleIn">0</div>
+          <div class="stat-label">➡️ เข้าร้าน</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number" id="peopleOut">0</div>
+          <div class="stat-label">⬅️ ออกจากร้าน</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number" id="currentInside">0</div>
+          <div class="stat-label">🏪 อยู่ในร้าน</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number" id="peakHour">-</div>
+          <div class="stat-label">⏰ ชั่วโมงยอดนิยม</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-number" id="avgPerHour">0</div>
+          <div class="stat-label">📈 เฉลี่ย/ชั่วโมง</div>
+        </div>
+      </div>
+
+      <div class="analytics-section">
+        <div class="chart-container">
+          <canvas id="trafficChart"></canvas>
+        </div>
+
+        <div class="activity-log">
+          <h3 style="margin-bottom: 15px; text-align: center">
+            📋 กิจกรรมล่าสุด
+          </h3>
+          <div id="activityLog"></div>
+        </div>
+      </div>
+
+      <div class="hourly-stats">
+        <h3 style="text-align: center; margin-bottom: 15px">
+          📊 สถิติรายชั่วโมง
+        </h3>
+        <div class="hourly-grid" id="hourlyGrid"></div>
+      </div>
+    </div>
+
+    <script>
+      let video;
+      let detector;
+      let detections = [];
+      let isDetecting = false;
+      let isPaused = false;
+      let sessionStartTime = null;
+      let sensitivity = 0.5;
+      let linePosition = "center";
+      let lineOrientation = "horizontal";
+
+      // People tracking
+      let trackedPeople = [];
+      let peopleIdCounter = 0;
+      let countingLineY = 300;
+      let countingLineX = 400;
+
+      // Line adjustment
+      let isAdjustingLine = false;
+      let lineAdjustmentMode = false;
+
+      // Statistics
+      let totalPeopleCount = 0;
+      let peopleInCount = 0;
+      let peopleOutCount = 0;
+      let currentInsideCount = 0;
+      let hourlyData = {};
+      let activityLog = [];
+      let trafficChart = null;
+
+      // Elements
+      const statusEl = document.getElementById("status");
+      const totalPeopleEl = document.getElementById("totalPeople");
+      const peopleInEl = document.getElementById("peopleIn");
+      const peopleOutEl = document.getElementById("peopleOut");
+      const currentInsideEl = document.getElementById("currentInside");
+      const peakHourEl = document.getElementById("peakHour");
+      const avgPerHourEl = document.getElementById("avgPerHour");
+      const startBtn = document.getElementById("startBtn");
+      const pauseBtn = document.getElementById("pauseBtn");
+      const resetBtn = document.getElementById("resetBtn");
+      const exportBtn = document.getElementById("exportBtn");
+      const adjustLineBtn = document.getElementById("adjustLineBtn");
+      const cameraSelect = document.getElementById("cameraSelect");
+      const sensitivitySelect = document.getElementById("sensitivity");
+      const linePositionSelect = document.getElementById("linePosition");
+      const lineOrientationSelect = document.getElementById("lineOrientation");
+      const activityLogEl = document.getElementById("activityLog");
+      const hourlyGridEl = document.getElementById("hourlyGrid");
+
+      function preload() {
+        // ml5.js will be loaded
+      }
+
+      function setup() {
+        const canvas = createCanvas(800, 600);
+        canvas.parent("videoContainer");
+
+        updateStatus("loading", "🔄 กำลังโหลดกล้อง...");
+
+        // Initialize hourly data
+        initializeHourlyData();
+
+        // Get available cameras
+        getCameras();
+
+        // Event listeners
+        startBtn.onclick = startCamera;
+        pauseBtn.onclick = togglePause;
+        resetBtn.onclick = resetData;
+        exportBtn.onclick = exportReport;
+        adjustLineBtn.onclick = toggleLineAdjustment;
+
+        sensitivitySelect.onchange = (e) => {
+          sensitivity = parseFloat(e.target.value);
+        };
+
+        linePositionSelect.onchange = (e) => {
+          linePosition = e.target.value;
+          updateCountingLine();
+        };
+
+        lineOrientationSelect.onchange = (e) => {
+          lineOrientation = e.target.value;
+          updateCountingLine();
+          updateDirectionIndicator();
+        };
+
+        // Initialize chart
+        initializeChart();
+
+        // Update displays every second
+        setInterval(updateDisplays, 1000);
+      }
+
+      function initializeHourlyData() {
+        for (let i = 0; i < 24; i++) {
+          hourlyData[i] = { in: 0, out: 0, total: 0 };
+        }
+      }
+
+      function updateCountingLine() {
+        if (lineOrientation === "horizontal") {
+          switch (linePosition) {
+            case "start": // top
+              countingLineY = 150;
+              break;
+            case "end": // bottom
+              countingLineY = 450;
+              break;
+            default: // center
+              countingLineY = 300;
+          }
+        } else {
+          // vertical
+          switch (linePosition) {
+            case "start": // left
+              countingLineX = 200;
+              break;
+            case "end": // right
+              countingLineX = 600;
+              break;
+            default: // center
+              countingLineX = 400;
+          }
+        }
+      }
+
+      function updateDirectionIndicator() {
+        const indicator = document.querySelector(".direction-indicator");
+        if (indicator) {
+          if (lineOrientation === "horizontal") {
+            indicator.innerHTML = `
+                        <div>🔴 เส้นนับคน (แนวนอน)</div>
+                        <div>⬇️ เข้าร้าน | ⬆️ ออกจากร้าน</div>
+                        <div style="font-size: 0.8rem; opacity: 0.8;">Y: ${countingLineY}</div>
+                    `;
+          } else {
+            indicator.innerHTML = `
+                        <div>🔴 เส้นนับคน (แนวตั้ง)</div>
+                        <div>➡️ เข้าร้าน | ⬅️ ออกจากร้าน</div>
+                        <div style="font-size: 0.8rem; opacity: 0.8;">X: ${countingLineX}</div>
+                    `;
+          }
+        }
+      }
+
+      async function getCameras() {
+        try {
+          const devices = await navigator.mediaDevices.enumerateDevices();
+          const videoDevices = devices.filter(
+            (device) => device.kind === "videoinput"
+          );
+
+          cameraSelect.innerHTML = "";
+          videoDevices.forEach((device, index) => {
+            const option = document.createElement("option");
+            option.value = device.deviceId;
+            option.textContent = device.label || `กล้อง ${index + 1}`;
+            cameraSelect.appendChild(option);
+          });
+
+          if (videoDevices.length === 0) {
+            cameraSelect.innerHTML = '<option value="">ไม่พบกล้อง</option>';
+          }
+        } catch (error) {
+          console.error("Error getting cameras:", error);
+          cameraSelect.innerHTML =
+            '<option value="">เกิดข้อผิดพลาดในการโหลดกล้อง</option>';
+        }
+      }
+
+      async function startCamera() {
+        try {
+          updateStatus("loading", "🎬 กำลังเริ่มกล้อง...");
+
+          const constraints = {
+            video: {
+              width: 800,
+              height: 600,
+              deviceId: cameraSelect.value
+                ? { exact: cameraSelect.value }
+                : undefined,
+            },
+          };
+
+          video = createCapture(constraints);
+          video.size(800, 600);
+          video.hide();
+
+          // Wait for video to be ready
+          video.elt.addEventListener("loadeddata", initializeDetector);
+
+          startBtn.style.display = "none";
+          pauseBtn.style.display = "inline-block";
+          exportBtn.style.display = "inline-block";
+          adjustLineBtn.style.display = "inline-block";
+        } catch (error) {
+          console.error("Error starting camera:", error);
+          updateStatus("error", "❌ เกิดข้อผิดพลาดในการเริ่มกล้อง");
+        }
+      }
+
+      function initializeDetector() {
+        updateStatus("loading", "🤖 กำลังโหลด AI Model...");
+
+        detector = ml5.objectDetector("cocossd", {}, () => {
+          updateStatus("ready", "✅ พร้อมใช้งาน! กำลังนับคนที่เดินผ่าน");
+          isDetecting = true;
+          sessionStartTime = new Date();
+          updateCountingLine();
+          updateDirectionIndicator();
+          detect();
+        });
+      }
+
+      function detect() {
+        if (!isDetecting || !video || isPaused) {
+          if (isDetecting && !isPaused) {
+            setTimeout(detect, 100);
+          }
+          return;
+        }
+
+        detector.detect(video, (error, results) => {
+          if (error) {
+            console.error("Detection error:", error);
+            return;
+          }
+
+          // Filter for people only
+          const people = results.filter(
+            (detection) =>
+              detection.label.toLowerCase() === "person" &&
+              detection.confidence >= sensitivity
+          );
+
+          detections = people;
+          trackPeople(people);
+          setTimeout(detect, 100);
+        });
+      }
+
+      function trackPeople(currentPeople) {
+        const maxDistance = 100;
+        const newTrackedPeople = [];
+
+        currentPeople.forEach((person) => {
+          const centerX = person.x + person.width / 2;
+          const centerY = person.y + person.height / 2;
+
+          // Find closest existing tracked person
+          let closestPerson = null;
+          let minDistance = maxDistance;
+
+          trackedPeople.forEach((tracked) => {
+            const distance = dist(centerX, centerY, tracked.x, tracked.y);
+            if (distance < minDistance) {
+              minDistance = distance;
+              closestPerson = tracked;
+            }
+          });
+
+          if (closestPerson) {
+            // Update existing person
+            const updatedPerson = {
+              id: closestPerson.id,
+              x: centerX,
+              y: centerY,
+              prevX: closestPerson.x,
+              prevY: closestPerson.y,
+              confidence: person.confidence,
+              crossedLine: closestPerson.crossedLine,
+              direction: closestPerson.direction,
+            };
+
+            // Check line crossing
+            checkLineCrossing(updatedPerson);
+            newTrackedPeople.push(updatedPerson);
+          } else {
+            // Create new tracked person
+            newTrackedPeople.push({
+              id: peopleIdCounter++,
+              x: centerX,
+              y: centerY,
+              prevX: centerX,
+              prevY: centerY,
+              confidence: person.confidence,
+              crossedLine: false,
+              direction: null,
+            });
+          }
+        });
+
+        trackedPeople = newTrackedPeople;
+      }
+
+      function checkLineCrossing(person) {
+        if (person.crossedLine) return;
+
+        const tolerance = 20;
+        let crossed = false;
+        let direction = null;
+
+        if (lineOrientation === "horizontal") {
+          const lineY = countingLineY;
+
+          // Check if person crossed the horizontal line
+          if (
+            (person.prevY < lineY - tolerance &&
+              person.y > lineY + tolerance) ||
+            (person.prevY > lineY + tolerance && person.y < lineY - tolerance)
+          ) {
+            crossed = true;
+
+            // Determine direction for horizontal line
+            if (person.prevY < lineY && person.y > lineY) {
+              // Moving down (entering store)
+              direction = "in";
+            } else if (person.prevY > lineY && person.y < lineY) {
+              // Moving up (leaving store)
+              direction = "out";
+            }
+          }
+        } else {
+          // vertical
+          const lineX = countingLineX;
+
+          // Check if person crossed the vertical line
+          if (
+            (person.prevX < lineX - tolerance &&
+              person.x > lineX + tolerance) ||
+            (person.prevX > lineX + tolerance && person.x < lineX - tolerance)
+          ) {
+            crossed = true;
+
+            // Determine direction for vertical line
+            if (person.prevX < lineX && person.x > lineX) {
+              // Moving right (entering store)
+              direction = "in";
+            } else if (person.prevX > lineX && person.x < lineX) {
+              // Moving left (leaving store)
+              direction = "out";
+            }
+          }
+        }
+
+        if (crossed && direction) {
+          person.crossedLine = true;
+          person.direction = direction;
+
+          if (direction === "in") {
+            peopleInCount++;
+            currentInsideCount++;
+            logActivity("เข้าร้าน", "in");
+          } else {
+            peopleOutCount++;
+            currentInsideCount = Math.max(0, currentInsideCount - 1);
+            logActivity("ออกจากร้าน", "out");
+          }
+
+          totalPeopleCount++;
+          updateHourlyData(person.direction);
+          updateStats();
+        }
+      }
+
+      function logActivity(action, direction) {
+        const timestamp = new Date();
+        activityLog.unshift({
+          time: timestamp,
+          action: action,
+          direction: direction,
+        });
+
+        // Keep only last 50 activities
+        if (activityLog.length > 50) {
+          activityLog = activityLog.slice(0, 50);
+        }
+
+        updateActivityLog();
+      }
+
+      function updateHourlyData(direction) {
+        const hour = new Date().getHours();
+        if (direction === "in") {
+          hourlyData[hour].in++;
+        } else if (direction === "out") {
+          hourlyData[hour].out++;
+        }
+        hourlyData[hour].total++;
+
+        updateHourlyDisplay();
+        updateChart();
+      }
+
+      function updateStats() {
+        totalPeopleEl.textContent = totalPeopleCount;
+        peopleInEl.textContent = peopleInCount;
+        peopleOutEl.textContent = peopleOutCount;
+        currentInsideEl.textContent = currentInsideCount;
+
+        // Calculate peak hour
+        let peakHour = 0;
+        let maxCount = 0;
+        Object.entries(hourlyData).forEach(([hour, data]) => {
+          if (data.total > maxCount) {
+            maxCount = data.total;
+            peakHour = parseInt(hour);
+          }
+        });
+
+        if (maxCount > 0) {
+          peakHourEl.textContent = `${peakHour}:00-${peakHour + 1}:00`;
+        }
+
+        // Calculate average per hour
+        if (sessionStartTime) {
+          const hoursElapsed =
+            (new Date() - sessionStartTime) / (1000 * 60 * 60);
+          if (hoursElapsed > 0) {
+            avgPerHourEl.textContent = Math.round(
+              totalPeopleCount / hoursElapsed
+            );
+          }
+        }
+      }
+
+      function updateActivityLog() {
+        activityLogEl.innerHTML = "";
+
+        activityLog.slice(0, 10).forEach((activity) => {
+          const logItem = document.createElement("div");
+          logItem.className = "log-item";
+
+          const icon = activity.direction === "in" ? "➡️" : "⬅️";
+          const color = activity.direction === "in" ? "#4CAF50" : "#ff9800";
+
+          logItem.innerHTML = `
+                    <div class="log-action" style="color: ${color};">
+                        ${icon} ${activity.action}
+                    </div>
+                    <div class="log-time">
+                        ${activity.time.toLocaleTimeString("th-TH")}
+                    </div>
+                `;
+
+          activityLogEl.appendChild(logItem);
+        });
+
+        if (activityLog.length === 0) {
+          activityLogEl.innerHTML =
+            '<div style="text-align: center; opacity: 0.7;">ยังไม่มีกิจกรรม</div>';
+        }
+      }
+
+      function updateHourlyDisplay() {
+        hourlyGridEl.innerHTML = "";
+
+        for (let hour = 0; hour < 24; hour++) {
+          const hourCard = document.createElement("div");
+          hourCard.className = "hour-card";
+
+          const data = hourlyData[hour];
+          const isCurrentHour = new Date().getHours() === hour;
+
+          if (isCurrentHour) {
+            hourCard.style.border = "2px solid #4CAF50";
+          }
+
+          hourCard.innerHTML = `
+                    <div class="hour-time">${hour}:00</div>
+                    <div class="hour-count">${data.total}</div>
+                    <div style="font-size: 0.8rem; opacity: 0.8;">
+                        ↗️${data.in} ↙️${data.out}
+                    </div>
+                `;
+
+          hourlyGridEl.appendChild(hourCard);
+        }
+      }
+
+      function initializeChart() {
+        const ctx = document.getElementById("trafficChart").getContext("2d");
+        trafficChart = new Chart(ctx, {
+          type: "line",
+          data: {
+            labels: Array.from({ length: 24 }, (_, i) => `${i}:00`),
+            datasets: [
+              {
+                label: "เข้าร้าน",
+                data: Array(24).fill(0),
+                borderColor: "#4CAF50",
+                backgroundColor: "rgba(76, 175, 80, 0.1)",
+                tension: 0.4,
+              },
+              {
+                label: "ออกจากร้าน",
+                data: Array(24).fill(0),
+                borderColor: "#ff9800",
+                backgroundColor: "rgba(255, 152, 0, 0.1)",
+                tension: 0.4,
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              title: {
+                display: true,
+                text: "การเดินทางของลูกค้ารายชั่วโมง",
+                color: "white",
+              },
+              legend: {
+                labels: {
+                  color: "white",
+                },
+              },
+            },
+            scales: {
+              x: {
+                ticks: { color: "white" },
+                grid: { color: "rgba(255, 255, 255, 0.1)" },
+              },
+              y: {
+                ticks: { color: "white" },
+                grid: { color: "rgba(255, 255, 255, 0.1)" },
+              },
+            },
+          },
+        });
+      }
+
+      function updateChart() {
+        if (trafficChart) {
+          const inData = Array.from({ length: 24 }, (_, i) => hourlyData[i].in);
+          const outData = Array.from(
+            { length: 24 },
+            (_, i) => hourlyData[i].out
+          );
+
+          trafficChart.data.datasets[0].data = inData;
+          trafficChart.data.datasets[1].data = outData;
+          trafficChart.update();
+        }
+      }
+
+      function toggleLineAdjustment() {
+        lineAdjustmentMode = !lineAdjustmentMode;
+
+        if (lineAdjustmentMode) {
+          adjustLineBtn.textContent = "✅ เสร็จสิ้น";
+          adjustLineBtn.className = "btn-success";
+          updateStatus("ready", "🎯 คลิกและลากเพื่อปรับตำแหน่งเส้นนับ");
+
+          // Add visual indicator
+          const videoContainer = document.getElementById("videoContainer");
+          videoContainer.classList.add("line-adjustment-mode");
+        } else {
+          adjustLineBtn.textContent = "🎯 ปรับเส้นด้วยเมาส์";
+          adjustLineBtn.className = "btn-info";
+          updateStatus("ready", "✅ บันทึกตำแหน่งเส้นนับแล้ว");
+
+          // Remove visual indicator
+          const videoContainer = document.getElementById("videoContainer");
+          videoContainer.classList.remove("line-adjustment-mode");
+        }
+      }
+
+      function mousePressed() {
+        if (
+          lineAdjustmentMode &&
+          mouseX >= 0 &&
+          mouseX <= 800 &&
+          mouseY >= 0 &&
+          mouseY <= 600
+        ) {
+          isAdjustingLine = true;
+
+          if (lineOrientation === "horizontal") {
+            countingLineY = mouseY;
+          } else {
+            countingLineX = mouseX;
+          }
+
+          updateDirectionIndicator();
+        }
+      }
+
+      function mouseDragged() {
+        if (
+          lineAdjustmentMode &&
+          isAdjustingLine &&
+          mouseX >= 0 &&
+          mouseX <= 800 &&
+          mouseY >= 0 &&
+          mouseY <= 600
+        ) {
+          if (lineOrientation === "horizontal") {
+            countingLineY = mouseY;
+          } else {
+            countingLineX = mouseX;
+          }
+
+          updateDirectionIndicator();
+        }
+      }
+
+      function mouseReleased() {
+        isAdjustingLine = false;
+      }
+
+      function updateDisplays() {
+        updateHourlyDisplay();
+      }
+
+      function togglePause() {
+        isPaused = !isPaused;
+        if (isPaused) {
+          pauseBtn.textContent = "▶️ เริ่มต่อ";
+          updateStatus("ready", "⏸️ หยุดชั่วคราว");
+        } else {
+          pauseBtn.textContent = "⏸️ หยุดชั่วคราว";
+          updateStatus("ready", "▶️ กำลังนับคนที่เดินผ่าน");
+          if (isDetecting) detect();
+        }
+      }
+
+      function resetData() {
+        totalPeopleCount = 0;
+        peopleInCount = 0;
+        peopleOutCount = 0;
+        currentInsideCount = 0;
+        trackedPeople = [];
+        peopleIdCounter = 0;
+        activityLog = [];
+        initializeHourlyData();
+        sessionStartTime = new Date();
+
+        updateStats();
+        updateActivityLog();
+        updateHourlyDisplay();
+        updateChart();
+        updateStatus("ready", "🔄 รีเซ็ตข้อมูลเรียบร้อย");
+      }
+
+      function exportReport() {
+        const wb = XLSX.utils.book_new();
+
+        // Summary sheet
+        const summaryData = [
+          ["รายงานการนับคนเดินผ่านหน้าร้าน"],
+          ["สร้างเมื่อ", new Date().toLocaleString("th-TH")],
+          [
+            "เวลาเริ่มเซสชัน",
+            sessionStartTime
+              ? sessionStartTime.toLocaleString("th-TH")
+              : "ไม่ระบุ",
+          ],
+          [],
+          ["สถิติรวม"],
+          ["คนทั้งหมด", totalPeopleCount],
+          ["เข้าร้าน", peopleInCount],
+          ["ออกจากร้าน", peopleOutCount],
+          ["อยู่ในร้านปัจจุบัน", currentInsideCount],
+          [],
+          ["สถิติรายชั่วโมง"],
+          ["ชั่วโมง", "เข้าร้าน", "ออกจากร้าน", "รวม"],
+        ];
+
+        for (let hour = 0; hour < 24; hour++) {
+          const data = hourlyData[hour];
+          summaryData.push([
+            `${hour}:00-${hour + 1}:00`,
+            data.in,
+            data.out,
+            data.total,
+          ]);
+        }
+
+        const summaryWs = XLSX.utils.aoa_to_sheet(summaryData);
+        XLSX.utils.book_append_sheet(wb, summaryWs, "สรุปรายงาน");
+
+        // Activity log sheet
+        if (activityLog.length > 0) {
+          const activityData = [["เวลา", "กิจกรรม", "ทิศทาง"]];
+
+          activityLog.forEach((activity) => {
+            activityData.push([
+              activity.time.toLocaleString("th-TH"),
+              activity.action,
+              activity.direction === "in" ? "เข้าร้าน" : "ออกจากร้าน",
+            ]);
+          });
+
+          const activityWs = XLSX.utils.aoa_to_sheet(activityData);
+          XLSX.utils.book_append_sheet(wb, activityWs, "กิจกรรมรายละเอียด");
+        }
+
+        // Export file
+        const timestamp = new Date()
+          .toISOString()
+          .slice(0, 19)
+          .replace(/:/g, "-");
+        const fileName = `people_counter_report_${timestamp}.xlsx`;
+
+        XLSX.writeFile(wb, fileName);
+
+        updateStatus("ready", "📊 ส่งออกรายงานเรียบร้อยแล้ว!");
+      }
+
+      function draw() {
+        if (video && video.loadedmetadata) {
+          // Draw video
+          image(video, 0, 0, 800, 600);
+
+          // Draw counting line
+          stroke(255, 68, 68);
+          strokeWeight(lineAdjustmentMode ? 5 : 3);
+
+          if (lineOrientation === "horizontal") {
+            line(0, countingLineY, 800, countingLineY);
+
+            // Draw line markers
+            if (lineAdjustmentMode) {
+              fill(255, 68, 68);
+              noStroke();
+              triangle(
+                10,
+                countingLineY - 10,
+                10,
+                countingLineY + 10,
+                25,
+                countingLineY
+              );
+              triangle(
+                790,
+                countingLineY - 10,
+                790,
+                countingLineY + 10,
+                775,
+                countingLineY
+              );
+            }
+          } else {
+            line(countingLineX, 0, countingLineX, 600);
+
+            // Draw line markers
+            if (lineAdjustmentMode) {
+              fill(255, 68, 68);
+              noStroke();
+              triangle(
+                countingLineX - 10,
+                10,
+                countingLineX + 10,
+                10,
+                countingLineX,
+                25
+              );
+              triangle(
+                countingLineX - 10,
+                590,
+                countingLineX + 10,
+                590,
+                countingLineX,
+                575
+              );
+            }
+          }
+
+          // Draw detection boxes for people
+          detections.forEach((person) => {
+            const x = person.x;
+            const y = person.y;
+            const w = person.width;
+            const h = person.height;
+
+            // Draw bounding box
+            stroke(76, 175, 80);
+            strokeWeight(2);
+            noFill();
+            rect(x, y, w, h);
+
+            // Draw label
+            fill(76, 175, 80);
+            noStroke();
+            textAlign(LEFT, TOP);
+            textSize(14);
+            const label = `Person ${Math.round(person.confidence * 100)}%`;
+
+            // Background for text
+            fill(0, 0, 0, 150);
+            rect(x, y - 20, textWidth(label) + 10, 20);
+
+            // Text
+            fill(255, 255, 255);
+            text(label, x + 5, y - 18);
+          });
+
+          // Draw tracked people paths
+          trackedPeople.forEach((person) => {
+            stroke(255, 255, 0, 150);
+            strokeWeight(2);
+            line(person.prevX, person.prevY, person.x, person.y);
+
+            // Draw person center point
+            fill(255, 255, 0);
+            noStroke();
+            ellipse(person.x, person.y, 8, 8);
+
+            // Draw ID
+            fill(255, 255, 255);
+            textAlign(CENTER, CENTER);
+            textSize(12);
+            text(person.id, person.x, person.y - 15);
+          });
+
+          // Draw line coordinates when adjusting
+          if (lineAdjustmentMode) {
+            fill(255, 255, 0);
+            noStroke();
+            textAlign(RIGHT, TOP);
+            textSize(14);
+
+            if (lineOrientation === "horizontal") {
+              text(`Y: ${Math.round(countingLineY)}`, width - 10, 10);
+            } else {
+              text(`X: ${Math.round(countingLineX)}`, width - 10, 10);
+            }
+
+            // Draw adjustment instructions
+            textAlign(CENTER, BOTTOM);
+            textSize(16);
+            fill(255, 255, 0, 200);
+            text(
+              "🎯 คลิกและลากเพื่อปรับตำแหน่งเส้นนับ",
+              width / 2,
+              height - 20
+            );
+          }
+
+          // Draw pause indicator
+          if (isPaused) {
+            fill(255, 193, 7, 100);
+            noStroke();
+            rect(0, 0, width, height);
+
+            fill(255, 255, 255);
+            textAlign(CENTER, CENTER);
+            textSize(24);
+            text("⏸️ หยุดชั่วคราว", width / 2, height / 2);
+          }
+        } else {
+          // Show loading screen
+          background(50);
+          fill(255);
+          textAlign(CENTER, CENTER);
+          textSize(24);
+          text("กำลังโหลด...", width / 2, height / 2);
+        }
+      }
+
+      function updateStatus(type, message) {
+        statusEl.className = `status ${type}`;
+        statusEl.textContent = message;
+      }
+
+      // Initialize p5.js
+      new p5();
+    </script>
+  </body>
+</html>
